@@ -26,33 +26,52 @@ class StaticURLTests(TestCase):
             group=cls.group
         )
 
-    def test_urls_for_guest_client(self):
+    def test_urls_for_guest_and_auth_client(self):
         templates_urls_names = {
-            'posts/index.html': '/',
-            'posts/group_list.html': f'/group/{self.group.slug}/',
-            'posts/profile.html': f'/profile/{self.post.author}/',
-            'posts/post_detail.html': f'/posts/{self.post.id}/',
+            'posts/index.html': ('/', HTTPStatus.OK, HTTPStatus.OK),
+            'posts/group_list.html': (
+                f'/group/{StaticURLTests.group.slug}/',
+                HTTPStatus.OK,
+                HTTPStatus.OK
+            ),
+            'posts/profile.html': (
+                f'/profile/{StaticURLTests.post.author}/',
+                HTTPStatus.OK,
+                HTTPStatus.OK
+            ),
+            'posts/post_detail.html': (
+                f'/posts/{StaticURLTests.post.id}/',
+                HTTPStatus.OK,
+                HTTPStatus.OK
+            ),
+            'posts/create_post.html': (
+                '/create/', HTTPStatus.FOUND, HTTPStatus.OK
+            ),
         }
-        for template, address in templates_urls_names.items():
-            with self.subTest(address=address):
-                response = self.guest_client.get(address)
-                self.assertEqual(response.status_code, HTTPStatus.OK)
+        for template, address_codes in templates_urls_names.items():
+            with self.subTest(address=address_codes):
+                response_quest = self.guest_client.get(address_codes[0])
+                self.assertEqual(response_quest.status_code, address_codes[1])
+
+                response_auth = self.authorized_user.get(address_codes[0])
+                self.assertEqual(response_auth.status_code, address_codes[2])
 
     def test_urls_create_post_and_edit(self):
         addresses = [
             '/create/',
-            f'/posts/{self.post.id}/edit/',
+            f'/posts/{StaticURLTests.post.id}/edit/',
         ]
         for address in addresses:
             with self.subTest(address=address):
-                response = self.guest_client.get(address)
-                self.assertEqual(response.status_code, HTTPStatus.FOUND)
+                response_quest = self.guest_client.get(address)
+                self.assertEqual(response_quest.status_code, HTTPStatus.FOUND)
+                self.assertRedirects(
+                    response_quest,
+                    f'/auth/login/?next={address}'
+                )
 
-                response = self.guest_client.get(address, follow=True)
-                self.assertRedirects(response, f'/auth/login/?next={address}')
-
-                response = self.authorized_user.get(address)
-                self.assertEqual(response.status_code, HTTPStatus.OK)
+                response_auth = self.authorized_user.get(address)
+                self.assertEqual(response_auth.status_code, HTTPStatus.OK)
 
     def test_urls_unexisting_page(self):
         response = self.guest_client.get('/random_page/')
