@@ -72,9 +72,15 @@ class PostPagesTests(TestCase):
         self.authorized_user.post(post_edit_reverse, form_data_edit)
         response = self.authorized_user.get(post_edit_reverse)
         self.assertEqual(response.context['post'].text, 'Новый текст')
+        self.assertFalse(Post.objects.filter(
+            text='Новый текст',
+            group=self.group.id,
+            id=post.id
+        ).exists())
         self.assertTrue(Post.objects.filter(
             text='Новый текст',
-            group=group2.id
+            group=group2.id,
+            id=post.id
         ).exists())
 
     def test_edit_and_create_post_quest(self):
