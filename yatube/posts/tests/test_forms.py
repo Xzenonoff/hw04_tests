@@ -74,7 +74,7 @@ class PostPagesTests(TestCase):
         self.assertEqual(response.context['post'].text, 'Новый текст')
         self.assertFalse(Post.objects.filter(
             text='Новый текст',
-            group=self.group.id,
+            group=PostPagesTests.group.id,
             id=post.id
         ).exists())
         self.assertTrue(Post.objects.filter(
