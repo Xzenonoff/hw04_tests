@@ -1,11 +1,8 @@
-from django.contrib.auth import get_user_model
 from django import forms
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..models import Group, Post
-
-User = get_user_model()
+from ..models import Group, Post, User
 
 
 class PostPagesTests(TestCase):
@@ -28,20 +25,34 @@ class PostPagesTests(TestCase):
             pub_date='02.09.2022'
         )
         cls.reverses = {
-            'index': reverse('posts:index'),
-            'group_list': reverse(
-                'posts:group_list', kwargs={'slug': PostPagesTests.group.slug}
+            'index': ('posts/index.html', reverse('posts:index')),
+            'group_list': (
+                'posts/group_list.html', reverse(
+                    'posts:group_list',
+                    kwargs={'slug': PostPagesTests.group.slug}
+                )
             ),
-            'profile': reverse('posts:profile', kwargs={
-                'username': PostPagesTests.post.author.username
-            }),
-            'post_detail': reverse(
-                'posts:post_detail', kwargs={'post_id': PostPagesTests.post.id}
+            'profile': (
+                'posts/profile.html', reverse(
+                    'posts:profile',
+                    kwargs={'username': PostPagesTests.post.author.username}
+                )
             ),
-            'post_create': reverse('posts:post_create'),
-            'post_edit': reverse(
-                'posts:post_edit', kwargs={'post_id': PostPagesTests.post.id}
+            'post_detail': (
+                'posts/post_detail.html', reverse(
+                    'posts:post_detail',
+                    kwargs={'post_id': PostPagesTests.post.id}
+                )
             ),
+            'post_create': (
+                'posts/create_post.html', reverse('posts:post_create')
+            ),
+            'post_edit': (
+                'posts/create_post.html', reverse(
+                    'posts:post_edit',
+                    kwargs={'post_id': PostPagesTests.post.id}
+                )
+            )
         }
         cls.form_fields = {
             'text': forms.fields.CharField,
@@ -56,15 +67,7 @@ class PostPagesTests(TestCase):
 
     def test_pages_uses_correct_template(self):
         """URL использует соответствующий шаблон."""
-        templates = (
-            'posts/index.html',
-            'posts/group_list.html',
-            'posts/profile.html',
-            'posts/post_detail.html',
-            'posts/create_post.html',
-            'posts/create_post.html',
-        )
-        for reverse_name, template in zip(self.reverses.values(), templates):
+        for template, reverse_name in self.reverses.values():
             with self.subTest(reverse_name=reverse_name):
                 response = self.authorized_user.get(reverse_name)
                 self.assertTemplateUsed(response, template)
@@ -74,12 +77,13 @@ class PostPagesTests(TestCase):
         keys = ('index', 'group_list', 'profile')
         for key in keys:
             with self.subTest(key=key):
-                response = self.authorized_user.get(self.reverses[key])
+                reverse_func = self.reverses[key][1]
+                response = self.authorized_user.get(reverse_func)
                 self.context_post_assert(response.context['page_obj'][0])
 
     def test_post_detail_has_correct_context(self):
         """Тест контекста для detail."""
-        response = self.authorized_user.get(self.reverses['post_detail'])
+        response = self.authorized_user.get(self.reverses['post_detail'][1])
         self.context_post_assert(response.context['post'])
         self.assertEqual(
             response.context['post'].author.posts.count(),
@@ -88,7 +92,7 @@ class PostPagesTests(TestCase):
 
     def test_create_post_has_correct_context(self):
         """Тест контекста для create."""
-        response = self.authorized_user.get(self.reverses['post_create'])
+        response = self.authorized_user.get(self.reverses['post_create'][1])
         for value, expected in self.form_fields.items():
             with self.subTest(value=value):
                 form_field = response.context.get('form').fields.get(value)
@@ -96,7 +100,7 @@ class PostPagesTests(TestCase):
 
     def test_post_edit_has_correct_context(self):
         """Тест контекста для edit."""
-        response = self.authorized_user.get(self.reverses['post_edit'])
+        response = self.authorized_user.get(self.reverses['post_edit'][1])
         for value, expected in self.form_fields.items():
             with self.subTest(value=value):
                 form_field = response.context.get('form').fields.get(value)
@@ -106,9 +110,9 @@ class PostPagesTests(TestCase):
     def test_post_create_group_check(self):
         """Тест добавления поста при указании группы."""
         pages = (
-            self.reverses['index'],
-            self.reverses['group_list'],
-            self.reverses['profile'],
+            self.reverses['index'][1],
+            self.reverses['group_list'][1],
+            self.reverses['profile'][1],
         )
         for page in pages:
             with self.subTest(page=page):
@@ -132,16 +136,20 @@ class PaginatorViewsTest(TestCase):
             description='Тестовое описание группы',
             slug='test-slug'
         )
-        objs = (Post(
-            text=f'{i} тестовый текст',
-            author=cls.user,
-            group=cls.group
-        ) for i in range(14))
+        objs = []
+        for i in range(14):
+            objs.append(
+                Post(
+                    text=f'{i} тестовый текст',
+                    author=cls.user,
+                    group=cls.group
+                )
+            )
         cls.post = Post.objects.bulk_create(objs)
 
     def test_paginator(self):
         """Проверяем, что Paginator работает корректно."""
-        pages = (
+        urls = (
             reverse('posts:index'),
             reverse('posts:group_list', kwargs={
                 'slug': PaginatorViewsTest.group.slug
@@ -151,12 +159,13 @@ class PaginatorViewsTest(TestCase):
             }),
         )
         page_posts = [
-            ({'page': 1}, 10),
-            ({'page': 2}, 4),
+            (1, 10),
+            (2, 4),
         ]
-        for page, page_post in zip(pages, page_posts):
-            with self.subTest(page=page):
-                response = self.authorized_user.get(page, page_post[0])
-                self.assertEqual(
-                    len(response.context['page_obj']), page_post[1]
-                )
+        for url in urls:
+            with self.subTest(url=url):
+                for page, post_num in page_posts:
+                    response = self.client.get(f"{url}?page={page}")
+                    self.assertEqual(
+                        len(response.context['page_obj']), post_num
+                    )

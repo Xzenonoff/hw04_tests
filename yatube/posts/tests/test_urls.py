@@ -1,11 +1,8 @@
 from http import HTTPStatus
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase, Client
 
-from ..models import Group, Post
-
-User = get_user_model()
+from ..models import Group, Post, User
 
 
 class StaticURLTests(TestCase):
@@ -25,36 +22,46 @@ class StaticURLTests(TestCase):
             text='Тестовый текст',
             group=cls.group
         )
+        cls.public_addresses = [
+            ('posts/index.html', '/'),
+            ('posts/group_list.html', f'/group/{StaticURLTests.group.slug}/'),
+            ('posts/profile.html', f'/profile/{StaticURLTests.post.author}/'),
+            ('posts/post_detail.html', f'/posts/{StaticURLTests.post.id}/'),
+        ]
+        cls.private_addresses = [
+            ('posts/create_post.html', '/create/'),
+            (
+                'posts/create_post.html',
+                f'/posts/{StaticURLTests.post.id}/edit/'
+            ),
+        ]
 
-    def test_urls_for_guest_and_auth_client(self):
-        templates_urls_names = {
-            'posts/index.html': ('/', HTTPStatus.OK, HTTPStatus.OK),
-            'posts/group_list.html': (
-                f'/group/{StaticURLTests.group.slug}/',
-                HTTPStatus.OK,
-                HTTPStatus.OK
-            ),
-            'posts/profile.html': (
-                f'/profile/{StaticURLTests.post.author}/',
-                HTTPStatus.OK,
-                HTTPStatus.OK
-            ),
-            'posts/post_detail.html': (
-                f'/posts/{StaticURLTests.post.id}/',
-                HTTPStatus.OK,
-                HTTPStatus.OK
-            ),
-            'posts/create_post.html': (
-                '/create/', HTTPStatus.FOUND, HTTPStatus.OK
-            ),
-        }
-        for template, address_codes in templates_urls_names.items():
-            with self.subTest(address=address_codes):
-                response_quest = self.guest_client.get(address_codes[0])
-                self.assertEqual(response_quest.status_code, address_codes[1])
+    def test_urls_for_guest_client(self):
+        """Тест URL для неавторизованного пользователя."""
+        for template, address in self.public_addresses:
+            with self.subTest(address=address):
+                response = self.guest_client.get(address)
+                self.assertTemplateUsed(response, template)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
 
-                response_auth = self.authorized_user.get(address_codes[0])
-                self.assertEqual(response_auth.status_code, address_codes[2])
+        for template, address in self.private_addresses:
+            with self.subTest(address=address):
+                response = self.guest_client.get(address)
+                self.assertEqual(response.status_code, HTTPStatus.FOUND)
+
+    def test_urls_for_auth_client(self):
+        """Тест URL для авторизованного пользователя."""
+        for template, address in self.public_addresses:
+            with self.subTest(address=address):
+                response = self.authorized_user.get(address)
+                self.assertTemplateUsed(response, template)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
+
+        for template, address in self.private_addresses:
+            with self.subTest(address=address):
+                response = self.authorized_user.get(address)
+                self.assertTemplateUsed(response, template)
+                self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_urls_create_post_and_edit(self):
         addresses = [

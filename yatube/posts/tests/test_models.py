@@ -1,9 +1,6 @@
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from ..models import Group, Post
-
-User = get_user_model()
+from ..models import Group, Post, User
 
 
 class PostModelTest(TestCase):
@@ -29,20 +26,20 @@ class PostModelTest(TestCase):
             (group.title, group),
             (post.text[:15], post)
         ]
-        for test_item in test_items:
-            with self.subTest(test_item=test_item):
-                self.assertEqual(test_item[0], str(test_item[1]))
+        for response, expected in test_items:
+            with self.subTest(response=response):
+                self.assertEqual(response, str(expected))
 
     def test_verbose_name(self):
         """Проверяем, что у моделей корректно работает verbose_name."""
         post = PostModelTest.post
-        field_verbose = {
-            'author': 'Автор',
-            'pub_date': 'Дата публикации',
-            'text': 'Текст поста',
-            'group': 'Группа',
-        }
-        for field, verbose in field_verbose.items():
+        field_verbose = [
+            ('author', 'Автор'),
+            ('pub_date', 'Дата публикации'),
+            ('text', 'Текст поста'),
+            ('group', 'Группа'),
+        ]
+        for field, verbose in field_verbose:
             with self.subTest(field=field):
                 self.assertEqual(
                     post._meta.get_field(field).verbose_name, verbose
@@ -51,10 +48,10 @@ class PostModelTest(TestCase):
     def test_help_text(self):
         """Проверяем, что у моделей корректно работает help_text."""
         post = PostModelTest.post
-        field_help = {
-            'text': 'Введите текст поста',
-            'group': 'Группа, к которой будет относиться пост',
-        }
-        for field, help_t in field_help.items():
+        field_help = [
+            ('text', 'Введите текст поста'),
+            ('group', 'Группа, к которой будет относиться пост'),
+        ]
+        for field, help_t in field_help:
             with self.subTest(field=field):
                 self.assertEqual(post._meta.get_field(field).help_text, help_t)
