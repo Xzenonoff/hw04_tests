@@ -1,11 +1,17 @@
+import shutil
+import tempfile
 from http import HTTPStatus
 
-from django.test import Client, TestCase
+from django.conf import settings
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from ..models import Group, Post, User
 
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PostPagesTests(TestCase):
 
     @classmethod
@@ -22,8 +28,13 @@ class PostPagesTests(TestCase):
         }
         cls.post_create_rev = reverse('posts:post_create')
 
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+
     def setUp(self):
-        self.quest_client = Client()
+        self.guest_client = Client()
         self.authorized_user = Client()
         self.authorized_user.force_login(self.user)
 
@@ -83,12 +94,12 @@ class PostPagesTests(TestCase):
             id=post.id
         ).exists())
 
-    def test_edit_and_create_post_quest(self):
+    def test_edit_and_create_post_guest(self):
         """
         Тест на проверку создания поста
         для незарегистрированного пользователя.
         """
-        response = self.quest_client.post(
+        response = self.guest_client.post(
             PostPagesTests.post_create_rev, PostPagesTests.form_data
         )
         self.assertEqual(response.status_code, HTTPStatus.FOUND)

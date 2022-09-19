@@ -10,9 +10,6 @@ class PostPagesTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = User.objects.create(username='test')
-        cls.guest_client = Client()
-        cls.authorized_user = Client()
-        cls.authorized_user.force_login(cls.user)
         cls.group = Group.objects.create(
             title='Тестовый заголовок',
             description='Тестовое описание группы',
@@ -20,7 +17,7 @@ class PostPagesTests(TestCase):
         )
         cls.post = Post.objects.create(
             author=cls.user,
-            text='Тестовый текст',
+            text='тестовый текст',
             group=cls.group,
             pub_date='02.09.2022'
         )
@@ -29,19 +26,19 @@ class PostPagesTests(TestCase):
             'group_list': (
                 'posts/group_list.html', reverse(
                     'posts:group_list',
-                    kwargs={'slug': PostPagesTests.group.slug}
+                    kwargs={'slug': cls.group.slug}
                 )
             ),
             'profile': (
                 'posts/profile.html', reverse(
                     'posts:profile',
-                    kwargs={'username': PostPagesTests.post.author.username}
+                    kwargs={'username': cls.post.author.username}
                 )
             ),
             'post_detail': (
                 'posts/post_detail.html', reverse(
                     'posts:post_detail',
-                    kwargs={'post_id': PostPagesTests.post.id}
+                    kwargs={'post_id': cls.post.id}
                 )
             ),
             'post_create': (
@@ -50,7 +47,7 @@ class PostPagesTests(TestCase):
             'post_edit': (
                 'posts/create_post.html', reverse(
                     'posts:post_edit',
-                    kwargs={'post_id': PostPagesTests.post.id}
+                    kwargs={'post_id': cls.post.id}
                 )
             )
         }
@@ -58,6 +55,22 @@ class PostPagesTests(TestCase):
             'text': forms.fields.CharField,
             'group': forms.fields.ChoiceField,
         }
+        cls.urls = (
+            reverse('posts:index'),
+            reverse(
+                'posts:group_list',
+                kwargs={'slug': cls.group.slug}
+            ),
+            reverse(
+                'posts:profile',
+                kwargs={'username': cls.post.author.username}
+            ),
+        )
+
+    def setUp(self):
+        self.guest_client = Client()
+        self.authorized_user = Client()
+        self.authorized_user.force_login(self.user)
 
     def context_post_assert(self, obj):
         self.assertEqual(obj.text, PostPagesTests.post.text)
@@ -74,11 +87,9 @@ class PostPagesTests(TestCase):
 
     def test_index_has_correct_context(self):
         """Тест контекста для index, group_list, profile."""
-        keys = ('index', 'group_list', 'profile')
-        for key in keys:
-            with self.subTest(key=key):
-                reverse_func = self.reverses[key][1]
-                response = self.authorized_user.get(reverse_func)
+        for url in PostPagesTests.urls:
+            with self.subTest(url=url):
+                response = self.authorized_user.get(url)
                 self.context_post_assert(response.context['page_obj'][0])
 
     def test_post_detail_has_correct_context(self):
@@ -109,63 +120,33 @@ class PostPagesTests(TestCase):
 
     def test_post_create_group_check(self):
         """Тест добавления поста при указании группы."""
-        pages = (
-            self.reverses['index'][1],
-            self.reverses['group_list'][1],
-            self.reverses['profile'][1],
-        )
-        for page in pages:
-            with self.subTest(page=page):
-                response = self.authorized_user.get(page)
+        for url in PostPagesTests.urls:
+            with self.subTest(url=url):
+                response = self.authorized_user.get(url)
                 self.assertEqual(
                     response.context.get('page_obj')[0],
                     PostPagesTests.post,
                     f'{PostPagesTests.post.id}'
                 )
 
-
-class PaginatorViewsTest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.user = User.objects.create_user(username='user')
-        cls.authorized_user = Client()
-        cls.authorized_user.force_login(cls.user)
-        cls.group = Group.objects.create(
-            title='Тестовый заголовок',
-            description='Тестовое описание группы',
-            slug='test-slug'
-        )
-        objs = []
-        for i in range(14):
-            objs.append(
-                Post(
-                    text=f'{i} тестовый текст',
-                    author=cls.user,
-                    group=cls.group
-                )
-            )
-        cls.post = Post.objects.bulk_create(objs)
-
     def test_paginator(self):
         """Проверяем, что Paginator работает корректно."""
-        urls = (
-            reverse('posts:index'),
-            reverse('posts:group_list', kwargs={
-                'slug': PaginatorViewsTest.group.slug
-            }),
-            reverse('posts:profile', kwargs={
-                'username': PaginatorViewsTest.user.username
-            }),
-        )
+        objs = [
+            Post(
+                text=f'текст {i}',
+                author=PostPagesTests.user,
+                group=PostPagesTests.group,
+            ) for i in range(13)
+        ]
+        Post.objects.bulk_create(objs)
         page_posts = [
             (1, 10),
             (2, 4),
         ]
-        for url in urls:
+        for url in PostPagesTests.urls:
             with self.subTest(url=url):
                 for page, post_num in page_posts:
-                    response = self.client.get(f"{url}?page={page}")
+                    response = self.authorized_user.get(url, {'page': page})
                     self.assertEqual(
                         len(response.context['page_obj']), post_num
                     )

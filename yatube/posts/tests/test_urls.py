@@ -10,9 +10,6 @@ class StaticURLTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = User.objects.create(username='test')
-        cls.guest_client = Client()
-        cls.authorized_user = Client()
-        cls.authorized_user.force_login(cls.user)
         cls.group = Group.objects.create(
             title='Тестовый заголовок',
             slug='test-slug'
@@ -24,26 +21,33 @@ class StaticURLTests(TestCase):
         )
         cls.public_addresses = [
             ('posts/index.html', '/'),
-            ('posts/group_list.html', f'/group/{StaticURLTests.group.slug}/'),
-            ('posts/profile.html', f'/profile/{StaticURLTests.post.author}/'),
-            ('posts/post_detail.html', f'/posts/{StaticURLTests.post.id}/'),
+            ('posts/group_list.html', f'/group/{cls.group.slug}/'),
+            ('posts/profile.html', f'/profile/{cls.post.author}/'),
+            ('posts/post_detail.html', f'/posts/{cls.post.id}/'),
         ]
         cls.private_addresses = [
             ('posts/create_post.html', '/create/'),
             (
                 'posts/create_post.html',
-                f'/posts/{StaticURLTests.post.id}/edit/'
+                f'/posts/{cls.post.id}/edit/'
             ),
         ]
 
-    def test_urls_for_guest_client(self):
-        """Тест URL для неавторизованного пользователя."""
+    def setUp(self):
+        self.guest_client = Client()
+        self.authorized_user = Client()
+        self.authorized_user.force_login(self.user)
+
+    def test_urls_for_guest_public(self):
+        """Тест публичных URL для неавторизованного пользователя."""
         for template, address in self.public_addresses:
             with self.subTest(address=address):
                 response = self.guest_client.get(address)
                 self.assertTemplateUsed(response, template)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
+    def test_urls_for_guest_private(self):
+        """Тест приватных URL для неавторизованного пользователя."""
         for template, address in self.private_addresses:
             with self.subTest(address=address):
                 response = self.guest_client.get(address)
@@ -51,29 +55,24 @@ class StaticURLTests(TestCase):
 
     def test_urls_for_auth_client(self):
         """Тест URL для авторизованного пользователя."""
-        for template, address in self.public_addresses:
-            with self.subTest(address=address):
-                response = self.authorized_user.get(address)
-                self.assertTemplateUsed(response, template)
-                self.assertEqual(response.status_code, HTTPStatus.OK)
-
-        for template, address in self.private_addresses:
+        all_addresses = self.public_addresses + self.private_addresses
+        for template, address in all_addresses:
             with self.subTest(address=address):
                 response = self.authorized_user.get(address)
                 self.assertTemplateUsed(response, template)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_urls_create_post_and_edit(self):
-        addresses = [
-            '/create/',
-            f'/posts/{StaticURLTests.post.id}/edit/',
-        ]
+        addresses = (
+            self.private_addresses[0][1],
+            self.private_addresses[1][1],
+        )
         for address in addresses:
             with self.subTest(address=address):
-                response_quest = self.guest_client.get(address)
-                self.assertEqual(response_quest.status_code, HTTPStatus.FOUND)
+                response_guest = self.guest_client.get(address)
+                self.assertEqual(response_guest.status_code, HTTPStatus.FOUND)
                 self.assertRedirects(
-                    response_quest,
+                    response_guest,
                     f'/auth/login/?next={address}'
                 )
 

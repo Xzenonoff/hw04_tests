@@ -22,7 +22,7 @@
         <div class="card-body">
           {% include 'includes/error_handler.html' %}
 
-          <form method="post"
+          <form method="post" enctype="multipart/form-data"
                 {% if is_edit %}
                 action="{% url 'posts:post_edit' post_id=post.id %}"
                 {% else %}
