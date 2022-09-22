@@ -55,8 +55,10 @@ class StaticURLTests(TestCase):
 
     def test_urls_for_auth_client(self):
         """Тест URL для авторизованного пользователя."""
-        all_addresses = (StaticURLTests.public_addresses + StaticURLTests.private_addresses)
-        for template, address in all_addresses:
+        urls = (
+            StaticURLTests.public_addresses + StaticURLTests.private_addresses
+        )
+        for template, address in urls:
             with self.subTest(address=address):
                 response = self.authorized_user.get(address)
                 self.assertTemplateUsed(response, template)

@@ -64,13 +64,13 @@ class PostPagesTests(TestCase):
         }
         cls.index_url = reverse('posts:index')
         cls.group_list_url = reverse(
-                'posts:group_list',
-                kwargs={'slug': cls.group.slug}
-            )
+            'posts:group_list',
+            kwargs={'slug': cls.group.slug}
+        )
         cls.profile_url = reverse(
-                'posts:profile',
-                kwargs={'username': cls.post.author.username}
-            )
+            'posts:profile',
+            kwargs={'username': cls.post.author.username}
+        )
 
     @classmethod
     def tearDownClass(cls):
