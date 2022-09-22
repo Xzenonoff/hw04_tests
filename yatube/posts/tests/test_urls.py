@@ -36,11 +36,11 @@ class StaticURLTests(TestCase):
     def setUp(self):
         self.guest_client = Client()
         self.authorized_user = Client()
-        self.authorized_user.force_login(self.user)
+        self.authorized_user.force_login(StaticURLTests.user)
 
     def test_urls_for_guest_public(self):
         """Тест публичных URL для неавторизованного пользователя."""
-        for template, address in self.public_addresses:
+        for template, address in StaticURLTests.public_addresses:
             with self.subTest(address=address):
                 response = self.guest_client.get(address)
                 self.assertTemplateUsed(response, template)
@@ -48,14 +48,14 @@ class StaticURLTests(TestCase):
 
     def test_urls_for_guest_private(self):
         """Тест приватных URL для неавторизованного пользователя."""
-        for template, address in self.private_addresses:
+        for template, address in StaticURLTests.private_addresses:
             with self.subTest(address=address):
                 response = self.guest_client.get(address)
                 self.assertEqual(response.status_code, HTTPStatus.FOUND)
 
     def test_urls_for_auth_client(self):
         """Тест URL для авторизованного пользователя."""
-        all_addresses = self.public_addresses + self.private_addresses
+        all_addresses = (StaticURLTests.public_addresses + StaticURLTests.private_addresses)
         for template, address in all_addresses:
             with self.subTest(address=address):
                 response = self.authorized_user.get(address)
@@ -63,10 +63,9 @@ class StaticURLTests(TestCase):
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_urls_create_post_and_edit(self):
-        addresses = (
-            self.private_addresses[0][1],
-            self.private_addresses[1][1],
-        )
+        addresses = []
+        for template, url in StaticURLTests.private_addresses:
+            addresses.append(url)
         for address in addresses:
             with self.subTest(address=address):
                 response_guest = self.guest_client.get(address)

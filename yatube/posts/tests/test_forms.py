@@ -13,7 +13,6 @@ TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 @override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PostPagesTests(TestCase):
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -24,7 +23,7 @@ class PostPagesTests(TestCase):
         )
         cls.form_data = {
             'text': 'тестовый текст',
-            'group': cls.group.id
+            'group': cls.group.id,
         }
         cls.post_create_rev = reverse('posts:post_create')
 
@@ -36,7 +35,7 @@ class PostPagesTests(TestCase):
     def setUp(self):
         self.guest_client = Client()
         self.authorized_user = Client()
-        self.authorized_user.force_login(self.user)
+        self.authorized_user.force_login(PostPagesTests.user)
 
     def test_create_post_in_form(self):
         """Тест на создание поста в БД."""
@@ -48,7 +47,7 @@ class PostPagesTests(TestCase):
         self.assertTrue(Post.objects.filter(
             author=PostPagesTests.user,
             text='тестовый текст',
-            group=PostPagesTests.group.id
+            group=PostPagesTests.group.id,
         ).exists())
         new_post = Post.objects.last()
         pairs_for_test = [
